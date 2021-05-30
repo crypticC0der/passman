@@ -1,11 +1,14 @@
 extern crate termion;
 use std::io;
+use std::io::Write;
 use tui::Terminal;
 use tui::backend::TermionBackend;
-use termion::raw::IntoRawMode;
 use tui::widgets::{Widget, Block, Borders,List,ListItem,ListState};
 use tui::layout::{Layout, Constraint, Direction};
 use tui::style::{Style,Modifier,Color};
+use termion::raw::IntoRawMode;
+use termion::event::Key;
+use termion::input::TermRead;
 
 fn draw(num:usize)-> Result<(),std::io::Error> {
     let stdout = io::stdout().into_raw_mode()?;
@@ -17,6 +20,7 @@ fn draw(num:usize)-> Result<(),std::io::Error> {
             .title("Block")
             .borders(Borders::ALL);
         let items = [ListItem::new("Item 1"), ListItem::new("Item 2"), ListItem::new("Item 3")];
+        let num = num % items.len();
         let l = List::new(items)
             .block(Block::default().title("List").borders(Borders::ALL))
             .style(Style::default().fg(Color::White))
@@ -48,12 +52,25 @@ fn vernam(key:&str,val:String) -> String{
 }
 
 
-fn main()-> Result<(),std::io::Error> {
+fn main(){ 
     let mut key=String::new(); 
     println!("what is the key");
-    io::stdin().read_line(&mut key).unwrap();
+    let stdin = io::stdin();
+    stdin.read_line(&mut key).unwrap();
     let key = key.as_str().trim_end();
-    loop{
-        draw(1);
+    let mut stdout = io::stdout().into_raw_mode().unwrap();
+    write!(stdout,"{}",termion::clear::All);
+    draw(0);
+    let mut i:isize= 0;
+    for c in stdin.keys() {
+        //write!(stdout,"{}",termion::clear::CurrentLine);
+        match c.unwrap() {
+            Key::Char('q') => break,
+            Key::Up => {i-=1;
+                if i<0{i=0;}
+            },
+            Key::Down => i+=1,
+            _ =>continue};
+        draw(i as usize);
     }
 }
