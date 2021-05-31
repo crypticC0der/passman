@@ -1,4 +1,7 @@
 extern crate termion;
+extern crate clipboard;
+use clipboard::ClipboardProvider;
+use clipboard::ClipboardContext;
 use rand::Rng;
 use std::fs;
 use std::io;
@@ -74,12 +77,16 @@ fn comp(key:&str, v:&Vec<[String;3]>){
     for c in stdin.keys() {
         //write!(stdout,"{}",termion::clear::CurrentLine);
         match c.unwrap() {
-            Key::Char(' ') => open[i as usize]=!open[i as usize],
+            Key::Char(' ') => open[i as usize % v.len()]=!open[i as usize % v.len()],
             Key::Char('q') => break,
             Key::Up => {i-=1;
                 if i<0{i=0;}
             },
             Key::Down => i+=1,
+            Key::Char('c') => {
+                let mut ctx:ClipboardContext = ClipboardProvider::new().unwrap();
+                ctx.set_contents(v[(v.len() - 1) - ((i as usize) % v.len())][2].to_owned());
+            },
             _ =>continue};
         draw(i as usize, v,&open);
     }
