@@ -1,6 +1,8 @@
 extern crate termion;
+use std::fs;
 use std::io;
 use std::io::Write;
+use std::io::Read;
 use tui::Terminal;
 use tui::backend::TermionBackend;
 use tui::widgets::{Widget, Block, Borders,List,ListItem,ListState};
@@ -10,7 +12,7 @@ use termion::raw::IntoRawMode;
 use termion::event::Key;
 use termion::input::TermRead;
 
-fn draw(num:usize)-> Result<(),std::io::Error> {
+fn draw(num:usize,items:Vec<ListItem>)-> Result<(),std::io::Error> {
     let stdout = io::stdout().into_raw_mode()?;
     let backend = TermionBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
@@ -19,7 +21,6 @@ fn draw(num:usize)-> Result<(),std::io::Error> {
         let block = Block::default()
             .title("Block")
             .borders(Borders::ALL);
-        let items = [ListItem::new("Item 1"), ListItem::new("Item 2"), ListItem::new("Item 3")];
         let num = num % items.len();
         let l = List::new(items)
             .block(Block::default().title("List").borders(Borders::ALL))
@@ -36,7 +37,7 @@ fn comp(){
     
 }
 
-fn vernam(key:&str,val:String) -> String{
+fn vernam(key:&str,val:&str) -> String{
     let mut ret = String::new();
     let lenk:usize = key.len();
     let lenv:usize= val.len();
@@ -44,7 +45,6 @@ fn vernam(key:&str,val:String) -> String{
     let key=key.as_bytes();
     let val=val.as_bytes();
     while i<lenv{
-        print!("one");
         ret.push((key[i%lenk] ^ val[i]) as char);
         i+=1;
     }
@@ -53,14 +53,27 @@ fn vernam(key:&str,val:String) -> String{
 
 
 fn main(){ 
+    let mut v = Vec::new();
     let mut key=String::new(); 
     println!("what is the key");
     let stdin = io::stdin();
     stdin.read_line(&mut key).unwrap();
     let key = key.as_str().trim_end();
+    let mut f = fs::File::open(".pass").expect("cant open");
+    let mut byt:[u8;50]=[0;50];
+    
+    while f.read(&mut byt).unwrap()>0{
+        let mut t = vernam(key,(&String::from_utf8(byt.to_vec()).unwrap()).trim_end());
+        f.read(&mut byt);
+        t = t + " | "+ &vernam(key,(&String::from_utf8(byt.to_vec()).unwrap()).trim_end()); 
+        f.read(&mut byt);
+        t = t + " | " + &vernam(key,(&String::from_utf8(byt.to_vec()).unwrap()).trim_end()); 
+        v.push(ListItem::new(format!("{}",t))); 
+    }
+
     let mut stdout = io::stdout().into_raw_mode().unwrap();
     write!(stdout,"{}",termion::clear::All);
-    draw(0);
+    draw(0,v.clone());
     let mut i:isize= 0;
     for c in stdin.keys() {
         //write!(stdout,"{}",termion::clear::CurrentLine);
@@ -71,6 +84,6 @@ fn main(){
             },
             Key::Down => i+=1,
             _ =>continue};
-        draw(i as usize);
+        draw(i as usize, v.clone());
     }
 }
