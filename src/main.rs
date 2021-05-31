@@ -9,17 +9,50 @@ use std::io::Write;
 use std::io::Read;
 use tui::Terminal;
 use tui::backend::TermionBackend;
-use tui::widgets::{Widget, Block, Borders,List,ListItem,ListState};
-use tui::layout::{Layout, Constraint, Direction};
+use tui::widgets::{Wrap,Paragraph,Widget, Block, Borders,List,ListItem,ListState};
+use tui::layout::{Layout, Alignment, Constraint, Direction};
 use tui::style::{Style,Modifier,Color};
+use tui::text::{Spans,Span};
 use termion::raw::IntoRawMode;
 use termion::event::Key;
 use termion::input::TermRead;
 
-fn draw(num:usize,v:&Vec<[String;3]>,open:&Vec<bool>)-> Result<(),std::io::Error> {
-    let stdout = io::stdout().into_raw_mode()?;
+fn render_gui_accgen(values:&[String;3],i:usize,options:[bool;5]) -> Result<(),std::io::Error>{
+    let mut stdout = io::stdout().into_raw_mode()?;
     let backend = TermionBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
+    stdout = io::stdout().into_raw_mode()?;
+    write!(stdout,"{}",termion::clear::All);
+    terminal.draw(|f| {
+        let size = f.size();
+        let text = vec![
+            Spans::from(vec![
+                Span::raw("First"),
+            ]),
+        ];
+        let mut markers:[&str;8] = ["  ";8];
+        markers[i] = ">>";
+        let mut indents:[String;3]=[EMP;3];
+        for x in 0..3{
+            let mut y;
+            if (values[x].len()>25){y=0}else{y=25-values[x].len()};
+            indents[x] = String::from_utf8(vec![32;y]).unwrap();
+        }
+        let inpt = "-".to_owned() + markers[0]+ "Service:  [" + &values[0]+ &indents[0]+"]\n\n-" + markers[1] + "Username: [" + &values[1] +&indents[1]+ "]\n\n\r-" + markers[2] +"Password: [" + &values[2] + &indents[2]+ "]";
+        let p = Paragraph::new(format!("{}",inpt))
+            .block(Block::default().title("Paragraph").borders(Borders::ALL))
+            .alignment(Alignment::Left)
+            .wrap(Wrap { trim: true });
+        f.render_widget(p, size);
+    })
+}
+
+fn render_gui_main(num:usize,v:&Vec<[String;3]>,open:&Vec<bool>)-> Result<(),std::io::Error> {
+    let mut stdout = io::stdout().into_raw_mode()?;
+    let backend = TermionBackend::new(stdout);
+    let mut terminal = Terminal::new(backend)?;
+    stdout = io::stdout().into_raw_mode()?;
+    write!(stdout,"{}",termion::clear::All);
     terminal.draw(|f| {
         let size = f.size();
         let mut items=Vec::new();
@@ -71,24 +104,44 @@ fn temp(){
 
 fn comp(key:&str, v:&Vec<[String;3]>){
     let mut i:isize= 0;
+    let mut create = false;
     let stdin = io::stdin();
     let mut open = vec![false;v.len()];
-    draw(i as usize, v,&open);
+    render_gui_main(i as usize, v,&open);
+    let mut vals:[String;3] = [EMP;3];
+    let mut options:[bool;5] = [true;5];
     for c in stdin.keys() {
         //write!(stdout,"{}",termion::clear::CurrentLine);
-        match c.unwrap() {
-            Key::Char(' ') => open[i as usize % v.len()]=!open[i as usize % v.len()],
-            Key::Char('q') => break,
-            Key::Up => {i-=1;
-                if i<0{i=0;}
-            },
-            Key::Down => i+=1,
-            Key::Char('c') => {
-                let mut ctx:ClipboardContext = ClipboardProvider::new().unwrap();
-                ctx.set_contents(v[(v.len() - 1) - ((i as usize) % v.len())][2].to_owned());
-            },
-            _ =>continue};
-        draw(i as usize, v,&open);
+        if create{
+            match c.unwrap(){
+                Key::Esc => {create=false;i=0;open=vec![false;v.len()];},
+                Key::Char(' ') => if i>=3{ options[i as usize -3]=!options[i as usize -3]}else{vals[i as usize].push(' ')},
+                Key::Ctrl('c')=>break,
+                Key::Char('\t') => if i<7{i+=1;},
+                Key::BackTab => if i>=1{i-=1;},
+                Key::Char(c) => if i<3{ vals[i as usize].push(c)}, 
+                Key::Backspace => if i<3{vals[i as usize].pop();}
+                _=>continue};
+        }else{
+            match c.unwrap() {
+                Key::Char('n') => {create=true;i=0;vals=[EMP;3];options=[true;5];},
+                Key::Char(' ') => open[i as usize % v.len()]=!open[i as usize % v.len()],
+                Key::Char('q') => break,
+                Key::Up => {i-=1;
+                    if i<0{i=0;}
+                },
+                Key::Down => i+=1,
+                Key::Char('c') => {
+                    let mut ctx:ClipboardContext = ClipboardProvider::new().unwrap();
+                    ctx.set_contents(v[(v.len() - 1) - ((i as usize) % v.len())][2].to_owned());
+                },
+                _ =>continue};
+        }
+        if create{
+            render_gui_accgen(&vals,i as usize,options);
+        }else{
+            render_gui_main(i as usize, v,&open);
+        }
     }
 }
 
@@ -96,6 +149,7 @@ fn vernam(key:&str,val:&str) -> String{
     let mut ret = String::new();
     let lenk:usize = key.len();
     let lenv:usize= val.len();
+
     let mut i:usize = 0;
     let key=key.as_bytes();
     let val=val.as_bytes();
