@@ -30,15 +30,26 @@ fn render_gui_accgen(values:&[String;3],i:usize,options:[bool;5]) -> Result<(),s
                 Span::raw("First"),
             ]),
         ];
-        let mut markers:[&str;8] = ["  ";8];
+        let mut markers:[&str;10] = ["  ";10];
         markers[i] = ">>";
+        let mut opstr:[&str;5] = [" ";5];
+        for x in 0..5{
+            if options[x]{opstr[x]="/";}
+        }
         let mut indents:[String;3]=[EMP;3];
         for x in 0..3{
             let mut y;
             if (values[x].len()>25){y=0}else{y=25-values[x].len()};
             indents[x] = String::from_utf8(vec![32;y]).unwrap();
         }
-        let inpt = "-".to_owned() + markers[0]+ "Service:  [" + &values[0]+ &indents[0]+"]\n\n-" + markers[1] + "Username: [" + &values[1] +&indents[1]+ "]\n\n\r-" + markers[2] +"Password: [" + &values[2] + &indents[2]+ "]";
+        let inpt = "-".to_owned() + markers[0]+ "Service:  [" + &values[0]+ &indents[0]+"]\n\n-" + markers[1] + "Username: [" + &values[1] +&indents[1]+ "]\n\n\r-" + markers[2] +"Password: [" + &values[2] + &indents[2]+ "]"
+            + "\n\n-" +markers[3] + "48-57 - numbers:        [" + opstr[0] + "]"
+            + "\n\n-" +markers[4] + "58-64 - special 1:      [" + opstr[1] + "]"
+            + "\n\n-" +markers[5] + "65-90 - upper case:     [" + opstr[2] + "]"
+            + "\n\n-" +markers[6] + "91-96 - special 2:      [" + opstr[3] + "]"
+            + "\n\n-" +markers[7] + "97-122 - lower case:    [" + opstr[4] + "]"
+            + "\n\n-" +markers[8] + "       [generate]"
+            + "\n\n-" +markers[9] + "       [  done  ]";
         let p = Paragraph::new(format!("{}",inpt))
             .block(Block::default().title("Paragraph").borders(Borders::ALL))
             .alignment(Alignment::Left)
@@ -115,9 +126,47 @@ fn comp(key:&str, v:&Vec<[String;3]>){
         if create{
             match c.unwrap(){
                 Key::Esc => {create=false;i=0;open=vec![false;v.len()];},
-                Key::Char(' ') => if i>=3{ options[i as usize -3]=!options[i as usize -3]}else{vals[i as usize].push(' ')},
+                Key::Char(' ') => {
+                    match i{
+                        9 => {
+                            //save data to file
+                            let mut outf = fs::OpenOptions::new().append(true).open(".pass").unwrap();
+                            for valindx in 0..3{
+                                let bout = vernam(key,&vals[valindx]);
+                                let bout = bout.as_bytes();
+                                let mut byt:[u8;50]=[32;50];
+                                for x in 0..bout.len(){
+                                    byt[x]=bout[x];
+                                }
+                                outf.write(&byt);
+                            }
+                            create=false;
+                            i=0;
+                            open=vec![false;v.len()];
+                        },
+                        8 => {
+                            //generate password
+                            let mut tpass=Vec::new();
+                            let mut r = rand::thread_rng();
+                            while tpass.len() < 40{
+                                let x = r.gen_range(48..122);
+                                match x{
+                                    48..=57 => if options[0]{tpass.push(x);},
+                                    58..=64 => if options[1]{tpass.push(x);},
+                                    65..=90 => if options[2]{tpass.push(x);},
+                                    91..=96 => if options[3]{tpass.push(x);},
+                                    97..=122=> if options[4]{tpass.push(x);}
+                                    _ => panic!("{} is outside of 48-122",x)
+                                }
+                            }
+                            vals[2] = String::from_utf8(tpass).unwrap();
+                        },
+                        3..=7 => options[i as usize -3] = !options[i as usize -3],
+                        0..=2 => vals[i as usize].push(' '),
+                        _ => panic!("wtf")}
+                },
                 Key::Ctrl('c')=>break,
-                Key::Char('\t') => if i<7{i+=1;},
+                Key::Char('\t') => if i<9{i+=1;},
                 Key::BackTab => if i>=1{i-=1;},
                 Key::Char(c) => if i<3{ vals[i as usize].push(c)}, 
                 Key::Backspace => if i<3{vals[i as usize].pop();}
