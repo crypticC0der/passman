@@ -2,7 +2,7 @@
 a password manager written in rust, with strong encryption<br>
 this is still in development but its finishing up now<br>
 <br>
-this is a password managaer written in rust and the passowrds are stored encrypted<br>
+this is a password managaer written in rust and the passwords are stored encrypted<br>
 it is part of my summer of code project where i aim to do around 9 coding projects<br>
 over my extended summer holidays before i head to university<br>
 <br>
